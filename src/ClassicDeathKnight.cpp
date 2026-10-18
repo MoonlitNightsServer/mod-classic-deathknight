@@ -296,8 +296,22 @@ void ClassicDeathKnightMgr::ApplyProgression(Player* player, bool onLogin)
         bool allowed = level >= entry.level && progression >= entry.requiresProgression;
 
         // Talent abilities / ranks are never auto-granted from the progression table.
+        //
+        // Moonlit Nights fork: this used to set allowed = false, which fell through
+        // to the removeSpell() branch below and STRIPPED any talent-chain rank the
+        // player legitimately owned. Five such rows sit in the table today
+        // (51416/51417 Frost Strike R2-R3, 55258/55259 Heart Strike R2-R3,
+        // 51325 Corpse Explosion R2), so a Death Knight who spent the talent and
+        // then learned the higher rank lost it again on the next login or level-up.
+        // That was invisible while mod-learn-spells capped Death Knights at 55 and
+        // nothing else taught those ranks; raising the cap to 60 made it visible.
+        //
+        // PurgeOrphanTalentRanks() below is the correct owner of talent chains: it
+        // removes the whole chain only when the Rank 1 talent is NOT spent, and
+        // leaves it alone when it is. So skip these entries entirely here instead
+        // of falling into the remove branch.  ~Moonlit Team
         if (IsTalentChainSpell(spellId))
-            allowed = false;
+            continue;
 
         if (allowed)
         {

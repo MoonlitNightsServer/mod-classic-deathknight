@@ -3,7 +3,6 @@
 #include "Configuration/Config.h"
 #include "DatabaseEnv.h"
 #include "DBCStores.h"
-#include "IndividualProgression.h"
 #include "Item.h"
 #include "Mail.h"
 #include "Player.h"
@@ -223,15 +222,31 @@ void ClassicDeathKnightMgr::ClearAcherusOutfits()
         LOG_INFO("module", "ClassicDeathKnight: cleared Acherus CharStartOutfit for {} DK entries", cleared);
 }
 
+// Moonlit Nights fork: stand-in for "every Individual Progression stage
+// cleared". uint8 max, so it satisfies any requires_progression value present
+// in classic_dk_spell_progression.  ~Moonlit Team
+constexpr uint8 MOONLIT_PROGRESSION_ALL_COMPLETE = 255;
+
+// Moonlit Nights fork: mod-individual-progression is not installed here, so
+// there is no progression state to read. Upstream fell through to `return 0`
+// when IP was absent -- which is NOT a safe default on this server. Every
+// entry in classic_dk_spell_progression carrying requires_progression > 0
+// would then fail the `progression >= entry.requiresProgression` test in
+// ApplyProgression(), and that function's else-branch does not merely skip
+// such a spell, it calls removeSpell() on it. In practice that means Army of
+// the Dead (42650, level 60) -- the only progression-gated entry in the table,
+// and the capstone cooldown on a level-60-capped realm -- would be stripped
+// from every Death Knight on every login, silently.
+//
+// With no progression system installed there is nothing to gate against, so
+// the coherent answer is that all progression is complete.
+// ~Moonlit Team
 uint8 ClassicDeathKnightMgr::GetPlayerProgression(Player* player) const
 {
     if (!player)
         return 0;
 
-    if (sIndividualProgression && sIndividualProgression->enabled)
-        return sIndividualProgression->GetPlayerProgressionFromQuests(player);
-
-    return 0;
+    return MOONLIT_PROGRESSION_ALL_COMPLETE;
 }
 
 bool ClassicDeathKnightMgr::HasWotlkAccess(Player* player) const
@@ -244,9 +259,13 @@ bool ClassicDeathKnightMgr::HasWotlkAccess(Player* player) const
 
     uint8 required = static_cast<uint8>(sConfigMgr->GetOption<int32>("ClassicDeathKnight.WotlkProgressionStage", 13));
 
-    if (sIndividualProgression && sIndividualProgression->enabled)
-        return sIndividualProgression->hasPassedProgression(player, static_cast<ProgressionState>(required));
-
+    // Moonlit Nights fork: the IndividualProgression branch went with the
+    // dependency. Both callers of this function (ClassicDeathKnight_scripts.cpp,
+    // the Ebon Hold eject and the Death Gate cast block) sit behind the
+    // ClassicDeathKnight.GateAcherus config check, which is 0 on this server --
+    // so this is currently unreachable. Kept correct rather than deleted so
+    // that setting GateAcherus=1 later behaves sanely instead of sealing
+    // Acherus permanently.  ~Moonlit Team
     return GetPlayerProgression(player) >= required;
 }
 

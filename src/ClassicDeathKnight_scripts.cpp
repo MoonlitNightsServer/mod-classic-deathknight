@@ -3,7 +3,6 @@
 #include "AreaDefines.h"
 #include "Chat.h"
 #include "Configuration/Config.h"
-#include "IndividualProgression.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "Spell.h"
